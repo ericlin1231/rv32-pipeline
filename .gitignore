@@ -1,0 +1,7 @@
+obj_dir
+out
+*.sv
+.DS_Store
+target
+project
+test_run_dir
