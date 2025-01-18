@@ -1,4 +1,4 @@
-# RISC-V 32 Bits Single Cycle CPU
+# RISC-V 32 Bits Pipelined CPU
 
 ## Build Binary Instruction Files
 
