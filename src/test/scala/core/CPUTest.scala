@@ -5,6 +5,8 @@ import chiseltest._
 import chiseltest.simulator.WriteVcdAnnotation
 import org.scalatest.flatspec.AnyFlatSpec
 
+import parameters.signals.Registers
+
 class FibonacciTest extends AnyFlatSpec with ChiselScalatestTester {
   "recursively calculate Fibonacci(10)" should "pass" in {
     test(new CPU("csrc/fibonacci.hex")).withAnnotations(Seq(WriteVcdAnnotation)) { c =>
@@ -91,7 +93,7 @@ class CheckSP extends AnyFlatSpec with ChiselScalatestTester {
       c.io.instruction_valid.poke(true.B)
       c.clock.step(10)
 
-      c.io.REGSDebug.debug_read_address.poke(6.U) /* Load Data to t1 Register */
+      c.io.REGSDebug.debug_read_address.poke(Registers.t1)
       c.io.REGSDebug.debug_read_data.expect(10.U)
     }
   }
@@ -109,7 +111,7 @@ class StoreLoadTest extends AnyFlatSpec with ChiselScalatestTester {
       c.io.MEMDebug.debug_read_data.expect(10.U)
 
       /* Check Data Can Load in `offset(address register)` Pattern */
-      c.io.REGSDebug.debug_read_address.poke(6.U) /* Load Data to t0 register */
+      c.io.REGSDebug.debug_read_address.poke(Registers.t1)
       c.io.REGSDebug.debug_read_data.expect(10.U)
     }
   }

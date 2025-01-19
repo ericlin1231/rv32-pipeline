@@ -14,7 +14,7 @@ class FetchTest extends AnyFlatSpec with ChiselScalatestTester {
       var pre   = 0x0
       var cur   = 0x0
       c.io.instruction_valid.poke(true.B)
-      // Init PC to entry point
+      /* Init PC to entry point */
       c.io.jump_flag_id.poke(true.B)
       c.io.jump_address_id.poke(entry)
       c.clock.step()
@@ -22,13 +22,13 @@ class FetchTest extends AnyFlatSpec with ChiselScalatestTester {
       var x = 0
       for (x <- 0 to 100) {
         Random.nextInt(2) match {
-          case 0 => // no jump
+          case 0 => /* no jump */
             cur = pre + 4
             c.io.jump_flag_id.poke(false.B)
             c.clock.step()
             c.io.instruction_address.expect(cur)
             pre = cur
-          case 1 => // jump
+          case 1 => /* jump */
             c.io.jump_flag_id.poke(true.B)
             c.io.jump_address_id.poke(entry)
             c.clock.step()
