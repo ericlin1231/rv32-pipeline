@@ -2,12 +2,12 @@ package core
 
 import chisel3._
 
-import bundle.PipelineBufferRegisterBundle
 import parameters.System
 
 class PipelineRegister(width: Int = System.DataBits, defaultValue: UInt = 0.U) extends Module {
   val io = IO(new Bundle {
-    val Port  = new PipelineBufferRegisterBundle
+    val stall = Input(Bool())
+    val flush = Input(Bool())
 
     val in    = Input(UInt(width.W))
     val out   = Output(UInt(width.W))
@@ -16,10 +16,10 @@ class PipelineRegister(width: Int = System.DataBits, defaultValue: UInt = 0.U) e
   val reg = RegInit(UInt(width.W), defaultValue)
   val out = RegInit(UInt(width.W), defaultValue)
 
-  when(io.Port.flush) {
+  when(io.flush) {
     out := defaultValue
     reg := defaultValue
-  } .elsewhen(io.Port.stall) {
+  } .elsewhen(io.stall) {
     out := reg
   } .otherwise {
     reg := io.in
