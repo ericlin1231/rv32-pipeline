@@ -8,14 +8,14 @@ import bundle.RegisterDebugBundle
 
 class RegisterFile extends Module {
   val io = IO(new Bundle {
-    val write_enable  = Input(Bool())
-    val write_address = Input(UInt(System.PhysicalRegisterAddrWidth))
-    val write_data    = Input(UInt(System.DataWidth))
+    val wEn   = Input(Bool())
+    val wAddr = Input(UInt(System.PhysicalRegisterAddrWidth))
+    val wData = Input(UInt(System.DataWidth))
 
-    val read_address1 = Input(UInt(System.PhysicalRegisterAddrWidth))
-    val read_address2 = Input(UInt(System.PhysicalRegisterAddrWidth))
-    val read_data1    = Output(UInt(System.DataWidth))
-    val read_data2    = Output(UInt(System.DataWidth))
+    val rAddr1 = Input(UInt(System.PhysicalRegisterAddrWidth))
+    val rAddr2 = Input(UInt(System.PhysicalRegisterAddrWidth))
+    val rData1 = Output(UInt(System.DataWidth))
+    val rData2 = Output(UInt(System.DataWidth))
 
     val DebugPort     = new RegisterDebugBundle
   })
@@ -23,26 +23,26 @@ class RegisterFile extends Module {
   val registers = RegInit(VecInit(Seq.fill(System.PhysicalRegisters)(0.U(System.DataWidth))))
 
   when(!reset.asBool) {
-    when(io.write_enable && io.write_address =/= 0.U) {
-      registers(io.write_address) := io.write_data
+    when(io.wEn && io.wAddr =/= 0.U) {
+      registers(io.wAddr) := io.wData
     }
   }
 
-  io.read_data1 := Mux(
-    io.read_address1 === 0.U,
+  io.rData1 := Mux(
+    io.rAddr1 === 0.U,
     0.U,
-    registers(io.read_address1)
+    registers(io.rAddr1)
   )
 
-  io.read_data2 := Mux(
-    io.read_address2 === 0.U,
+  io.rData2 := Mux(
+    io.rAddr2 === 0.U,
     0.U,
-    registers(io.read_address2)
+    registers(io.rAddr2)
   )
 
-  io.DebugPort.debug_read_data := Mux(
-    io.DebugPort.debug_read_address === 0.U,
+  io.DebugPort.debug_rData := Mux(
+    io.DebugPort.debug_rAddr === 0.U,
     0.U,
-    registers(io.DebugPort.debug_read_address)
+    registers(io.DebugPort.debug_rAddr)
   )
 }

@@ -13,18 +13,36 @@ import parameters.signals.RegWriteSource
 
 class Decode extends Module {
   val io = IO(new Bundle {
-    val instruction = Input(UInt(System.InstructionWidth))
+    val instruction       = Input(UInt(System.InstructionWidth))
+    val instAddr          = Input(UInt(System.AddrWidth))
+    val reg1_data         = Input(UInt(System.DataWidth))
+    val reg2_data         = Input(UInt(System.DataWidth))
+    val MEM_forward_data  = Input(UInt(System.DataWidth))
+    val WB_forward_data   = Input(UInt(System.DataWidth))
+    val reg1_forward_type = Input(UInt(2.W))
+    val reg2_forward_type = Input(UInt(2.W))
 
-    val regs_reg1_read_address = Output(UInt(System.PhysicalRegisterAddrWidth))
-    val regs_reg2_read_address = Output(UInt(System.PhysicalRegisterAddrWidth))
-    val ex_immediate           = Output(UInt(System.DataWidth))
-    val ex_aluop1_source       = Output(UInt(1.W))
-    val ex_aluop2_source       = Output(UInt(1.W))
-    val memory_read_enable     = Output(Bool())
-    val memory_write_enable    = Output(Bool())
-    val wb_reg_write_source    = Output(UInt(2.W))
-    val reg_write_enable       = Output(Bool())
-    val reg_write_address      = Output(UInt(System.PhysicalRegisterAddrWidth))
+    /* Signals Pass to EX for ALU Operation */
+    val EX_immediate      = Output(UInt(System.DataWidth))
+    val EX_aluop1_source  = Output(UInt(1.W))
+    val EX_aluop2_source  = Output(UInt(1.W))
+
+    /* Jump Signals Pass to IF to Change PC */
+    val IF_jump_flag      = Output(Bool())
+    val IF_jump_addr      = Output(UInt(System.AddrWidth))
+
+    /* Signals Pass to MEM and WB */
+    val PASS_MEM_rEn      = Output(Bool())
+    val PASS_MEM_wEn      = Output(Bool())
+    val PASS_REGS_wSource = Output(UInt(2.W))
+    val PASS_REGS_wEn     = Output(Bool())
+    val PASS_REGS_wAddr   = Output(UInt(System.PhysicalRegisterAddrWidth))
+
+    /* Signals Pass to Control Unit to Determine Stall or Flush */
+    val CTRL_ID_jump      = Output(Bool())
+    val CTRL_jump_addr    = Output(UInt(System.AddrWidth))
+    val CTRL_REGS_rAddr1  = Output(UInt(System.PhysicalRegisterAddrWidth))
+    val CTRL_REGS_rAddr2  = Output(UInt(System.PhysicalRegisterAddrWidth))
   })
   val opcode = io.instruction(6, 0)
   val funct3 = io.instruction(14, 12)
@@ -32,10 +50,18 @@ class Decode extends Module {
   val rd     = io.instruction(11, 7)
   val rs1    = io.instruction(19, 15)
   val rs2    = io.instruction(24, 20)
-
-  io.regs_reg1_read_address := Mux(opcode === Opcode.lui, 0.U(System.PhysicalRegisterAddrWidth), rs1)
-  io.regs_reg2_read_address := rs2
-  val immediate = MuxLookup(opcode, Cat(Fill(20, io.instruction(31)), io.instruction(31, 20)))(
+  
+  /* Control Signals */
+  io.CTRL_REGS_rAddr1 := Mux(opcode === Instructions.lui, 0.U(System.PhysicalRegisterAddrWidth), rs1)
+  io.CTRL_REGS_rAddr2 := rs2
+  io.CTRL_ID_jump     := ((opcode === Opcode.B)
+                          || (opcode === Opcode.jal)
+                          || (opcode === Opcode.jalr))
+  
+  /* Execute Signals */
+  io.EX_immediate := MuxLookup(
+    opcode,
+    Cat(Fill(20, io.instruction(31)), io.instruction(31, 20)),
     IndexedSeq(
       Opcode.I -> Cat(Fill(21, io.instruction(31)), io.instruction(30, 20)),
       Opcode.L -> Cat(Fill(21, io.instruction(31)), io.instruction(30, 20)),
@@ -50,7 +76,6 @@ class Decode extends Module {
       ),
       Opcode.lui   -> Cat(io.instruction(31, 12), 0.U(12.W)),
       Opcode.auipc -> Cat(io.instruction(31, 12), 0.U(12.W)),
-      // jal's imm represents a multiple of 2 bytes.
       Opcode.jal -> Cat(
         Fill(12, io.instruction(31)),
         io.instruction(19, 12),
@@ -60,58 +85,87 @@ class Decode extends Module {
       )
     )
   )
-  io.ex_immediate := immediate
-  io.ex_aluop1_source := Mux(
+  io.EX_aluop1_source := Mux(
     opcode === Opcode.auipc || opcode === Opcode.B || opcode === Opcode.jal,
     ALUOp1Source.InstructionAddress,
     ALUOp1Source.Register
   )
-
-  // ALU op2 from reg: R-type,
-  // ALU op2 from imm: L-Type (I-type subtype),
-  //                   I-type (nop=addi, jalr, csr-class, fence),
-  //                   J-type (jal),
-  //                   U-type (lui, auipc),
-  //                   S-type (rs2 value sent to MemControl, ALU computes rs1 + imm.)
-  //                   B-type (rs2 compares with rs1 in jump judge unit, ALU computes jump address PC+imm.)
-  io.ex_aluop2_source := Mux(
+  io.EX_aluop2_source := Mux(
     opcode === Opcode.RM,
     ALUOp2Source.Register,
     ALUOp2Source.Immediate
   )
 
-  io.memory_read_enable := Mux(
-    opcode === Opcode.L,
-    true.B,
-    false.B
-  )
+  /* Memory Signals */
+  io.PASS_MEM_rEn := opcode === Opcode.L
+  io.PASS_MEM_wEn := opcode === Opcode.S
 
-  io.memory_write_enable := Mux(
-    opcode === Opcode.S,
-    true.B,
-    false.B
-  )
+  /* WriteBack Signals */
+  io.PASS_REGS_wEn := ((opcode === Opcode.RM)
+                       || (opcode === Opcode.I)
+                       || (opcode === Opcode.L)
+                       || (opcode === Opcode.auipc)
+                       || (opcode === Opcode.lui)
+                       || (opcode === Opcode.jal)
+                       || (opcode === Opcode.jalr))
 
-  io.wb_reg_write_source := MuxCase(
+  io.PASS_REGS_wSource := MuxLookup(
+    opcode,
     RegWriteSource.ALUResult,
-    ArraySeq(
-      (opcode === Opcode.RM
-       || opcode === Opcode.I
-       || opcode === Opcode.lui
-       || opcode === Opcode.auipc) -> RegWriteSource.ALUResult,
-      (opcode === Opcode.jal
-       || opcode === Opcode.jalr)  -> RegWriteSource.NextInstructionAddress,
-      (opcode === Opcode.L)    -> RegWriteSource.Memory
+    IndexedSeq(
+      Opcode.L -> RegWriteSource.Memory,
+      // Instructions.csr   -> RegWriteSource.CSR,
+      Opcode.jal   -> RegWriteSource.NextInstructionAddress,
+      Opcode.jalr  -> RegWriteSource.NextInstructionAddress
     )
   )
 
-  io.reg_write_enable := ((opcode === Opcode.RM)
-                          || (opcode === Opcode.I)
-                          || (opcode === Opcode.L)
-                          || (opcode === Opcode.auipc)
-                          || (opcode === Opcode.lui)
-                          || (opcode === Opcode.jal)
-                          || (opcode === Opcode.jalr))
+  io.PASS_REGS_wAddr := rd
 
-  io.reg_write_address := rd
+  /* Select Registers Data Source */
+  val reg1_data = MuxLookup(
+    io.reg1_forward_type,
+    0.U,
+    IndexedSeq(
+      ForwardingType.NoForward      -> (io.reg1_data),
+      ForwardingType.ForwardFromWB  -> (io.WB_forward_data),
+      ForwardingType.ForwardFromMEM -> (io.MEM_forward_data)
+    )
+  )
+  val reg2_data = MuxLookup(
+    io.reg2_forward_type,
+    0.U,
+    IndexedSeq(
+      ForwardingType.NoForward      -> (io.reg2_data),
+      ForwardingType.ForwardFromWB  -> (io.WB_forward_data),
+      ForwardingType.ForwardFromMEM -> (io.MEM_forward_data)
+    )
+  )
+
+  /* Instruction Fetch Signals */
+  io.IF_jump_flag := ((opcode === Instructions.jal)
+                      || (opcode === Instructions.jalr)
+                      || ((opcode === Opcode.B)
+                          && MuxLookup(
+                               funct3,
+                               false.B,
+                               IndexedSeq(
+                                 InstructionsTypeB.beq  -> (reg1_data === reg2_data),
+                                 InstructionsTypeB.bne  -> (reg1_data =/= reg2_data),
+                                 InstructionsTypeB.blt  -> (reg1_data.asSInt < reg2_data.asSInt),
+                                 InstructionsTypeB.bge  -> (reg1_data.asSInt >= reg2_data.asSInt),
+                                 InstructionsTypeB.bltu -> (reg1_data.asUInt < reg2_data.asUInt),
+                                 InstructionsTypeB.bgeu -> (reg1_data.asUInt >= reg2_data.asUInt)
+                               )
+                             )))
+
+  io.IF_jump_addr := MuxLookup(
+                       opcode,
+                       0.U,
+                       IndexedSeq(
+                         Opcode.B    -> (io.instAddr + io.EX_immediate),
+                         Opcode.jal  -> (io.instAddr + io.EX_immediate),
+                         Opcode.jalr -> (reg1_data + io.EX_immediate)
+                       )
+                     )
 }
