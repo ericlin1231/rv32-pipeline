@@ -9,9 +9,10 @@ import parameters.signals.Instructions
 
 class Fetch extends Module {
   val io = IO(new Bundle {
-    val instValid   = Input(Bool())
-    val jump_flag   = Input(Bool())
-    val jump_addr   = Input(UInt(System.AddrWidth))
+    val instValid  = Input(Bool())
+    val stall_flag = Input(Bool())
+    val jump_flag  = Input(Bool())
+    val jump_addr  = Input(UInt(System.AddrWidth))
 
     val instAddr    = Output(UInt(System.AddrWidth))
     val instruction = Output(UInt(System.InstructionWidth))

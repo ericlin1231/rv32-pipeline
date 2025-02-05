@@ -79,7 +79,7 @@ class CPU(filename: String) extends Module {
   CTRL.io.REGS_rAddr2  := ID.io.CTRL_REGS_rAddr2
   CTRL.io.EX_MEM_rEn   := ID2EX.io.out_CTRL_MEM_rEn
   CTRL.io.EX_rd        := ID2EX.io.out_CTRL_REGS_wAddr
-  CTRL.io.MEM_MEM_rEn  := EX2MEM.io.out_CTRL_MEM_rEn
+  CTRL.io.MEM_rEn      := EX2MEM.io.out_CTRL_MEM_rEn
   CTRL.io.MEM_rd       := EX2MEM.io.out_CTRL_REGS_wAddr
 
   /* Forward */
@@ -111,7 +111,7 @@ class CPU(filename: String) extends Module {
 
   /* Instruction Fetch */
   IF.io.instValid  := io.instValid
-  IF.io.stall_flag := CTRL.io.IF_stall_flag
+  IF.io.stall_flag := CTRL.io.PC_stall
   IF.io.jump_flag  := ID.io.IF_jump_flag
   IF.io.jump_addr  := ID.io.IF_jump_addr
   IF.io.IROMPort   <> IROM.io.IROMPort
@@ -157,20 +157,21 @@ class CPU(filename: String) extends Module {
   ID2EX.io.flush         := CTRL.io.ID_flush
   ID2EX.io.instruction   := IF2ID.io.out_instruction
   ID2EX.io.instAddr      := IF2ID.io.out_instAddr
+
   ID2EX.io.reg1_data     := REGS.io.rData1
   ID2EX.io.reg2_data     := REGS.io.rData2
   ID2EX.io.immediate     := ID.io.EX_immediate
   ID2EX.io.aluop1_source := ID.io.EX_aluop1_source
   ID2EX.io.aluop2_source := ID.io.EX_aluop2_source
   
+  /* Pass to Write Back */
   ID2EX.io.PASS_REGS_wEn     := ID.io.PASS_REGS_wEn
   ID2EX.io.PASS_REGS_wAddr   := ID.io.PASS_REGS_wAddr
   ID2EX.io.PASS_REGS_wSource := ID.io.PASS_REGS_wSource
+
+  /* Pass to Memory */
   ID2EX.io.PASS_MEM_rEn      := ID.io.PASS_MEM_rEn
   ID2EX.io.PASS_MEM_wEn      := ID.io.PASS_MEM_wEn
-
-  ID2EX.io.CTRL_REGS_rAddr1 := ID.io.CTRL_REGS_rAddr1
-  ID2EX.io.CTRL_REGS_rAddr2 := ID.io.CTRL_REGS_rAddr2
 
   /* Execution */
   /*
@@ -232,9 +233,9 @@ class CPU(filename: String) extends Module {
   MEM.io.funct3          := EX2MEM.io.out_funct3
 
   /* Memory & WriteBack Pipeline Buffer */
-  MEM2WB.io.instAddr  := EX2MEM.io.out_instAddr
-  MEM2WB.io.rd_wData  := EX2MEM.io.alu_result
-  MEM2WB.io.MEM_rData := MEM.io.MEMPort.rData
+  MEM2WB.io.instAddr   := EX2MEM.io.out_instAddr
+  MEM2WB.io.alu_result := EX2MEM.io.alu_result
+  MEM2WB.io.MEM_rData  := MEM.io.MEMPort.rData
 
   MEM2WB.io.REGS_wEn     := EX2MEM.io.out_PASS_REGS_wEn
   MEM2WB.io.REGS_wSource := EX2MEM.io.out_PASS_REGS_wSource
@@ -242,7 +243,7 @@ class CPU(filename: String) extends Module {
 
   /* Write Back */
   WB.io.instAddr     := MEM2WB.io.out_instAddr
-  WB.io.rd_wData     := MEM2WB.io.out_rd_wData
-  WB.io.REGS_wData   := MEM2WB.io.out_MEM_rData
+  WB.io.alu_result   := MEM2WB.io.out_alu_result
+  WB.io.MEM_rData    := MEM2WB.io.out_MEM_rData
   WB.io.REGS_wSource := MEM2WB.io.out_REGS_wSource
 }

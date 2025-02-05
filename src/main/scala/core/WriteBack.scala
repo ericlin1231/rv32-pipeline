@@ -8,16 +8,20 @@ import parameters.signals.RegWriteSource
 
 class WriteBack extends Module {
   val io = IO(new Bundle() {
-    val instruction_address = Input(UInt(System.AddrWidth))
-    val alu_result          = Input(UInt(System.DataWidth))
-    val memory_read_data    = Input(UInt(System.DataWidth))
-    val regs_write_source   = Input(UInt(2.W))
-    val regs_write_data     = Output(UInt(System.DataWidth))
+    val instAddr     = Input(UInt(System.AddrWidth))
+    val alu_result   = Input(UInt(System.DataWidth))
+    val MEM_rData    = Input(UInt(System.DataWidth))
+    val REGS_wSource = Input(UInt(2.W))
+
+    val REGS_wData = Output(UInt(System.DataWidth))
   })
-  io.regs_write_data := MuxLookup(io.regs_write_source, io.alu_result)(
+  io.REGS_wData := MuxLookup(
+    io.REGS_wSource,
+    io.alu_result,
     IndexedSeq(
-      RegWriteSource.Memory                 -> io.memory_read_data,
-      RegWriteSource.NextInstructionAddress -> (io.instruction_address + 4.U)
+      RegWriteSource.Memory                 -> io.MEM_rData
+      // RegWriteSource.CSR                    -> io.csr_read_data,
+      RegWriteSource.NextInstructionAddress -> (io.instAddr + 4.U)
     )
-  );
+  )
 }

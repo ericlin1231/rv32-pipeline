@@ -12,7 +12,7 @@ import parameters.signals.Funct3TypeS
 class Memory extends Module {
   val io = IO(new Bundle {
     val MEMPort = new MemoryBundle
-    val funct3      = Input(UInt(3.W))
+    val funct3  = Input(UInt(3.W))
 
     val DebugPort = new MemoryDebugBundle
   })

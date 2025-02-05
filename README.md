@@ -16,7 +16,7 @@ Enter `asmsrc` to generate the binary instruction files.
 
 ```shell
 $ cd asmsrc
-$ cd make hex
+$ make hex
 ```
 
 ## Test

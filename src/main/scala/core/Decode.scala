@@ -40,7 +40,6 @@ class Decode extends Module {
 
     /* Signals Pass to Control Unit to Determine Stall or Flush */
     val CTRL_ID_jump      = Output(Bool())
-    val CTRL_jump_addr    = Output(UInt(System.AddrWidth))
     val CTRL_REGS_rAddr1  = Output(UInt(System.PhysicalRegisterAddrWidth))
     val CTRL_REGS_rAddr2  = Output(UInt(System.PhysicalRegisterAddrWidth))
   })
